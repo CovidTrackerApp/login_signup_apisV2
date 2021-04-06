@@ -83,5 +83,11 @@ https://stackoverflow.com/questions/20431833/mongodb-ttl-expires-documents-early
 https://levelup.gitconnected.com/coding-aes128-bit-encryption-in-python-in-less-than-5-minutes-f6bcbddd2b82
 
 
+# using hashlib in python. I'm currently using this. In which for same text same hash is generated everytime.
+https://docs.python.org/3.3/library/hashlib.html
+
+
+# for uploading files via url i.e. postman.
+https://roytuts.com/python-flask-rest-api-file-upload/
 
 

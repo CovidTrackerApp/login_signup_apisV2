@@ -25,8 +25,8 @@ app.config["SECRET_KEY"] = "t+isi-sth(esec4_OPof"
 # mail thing here
 app.config['MAIL_SERVER']='smtp.yandex.com'
 app.config['MAIL_PORT'] = 465
-app.config['MAIL_USERNAME'] = 'furqan4545@yandex.ru'
-app.config['MAIL_PASSWORD'] = 'Yandex12345'
+app.config['MAIL_USERNAME'] = ''
+app.config['MAIL_PASSWORD'] = ''
 app.config['MAIL_USE_TLS'] = False
 app.config['MAIL_USE_SSL'] = True
 # mail end here
@@ -153,6 +153,31 @@ def updateVerificationCode(username):
 
     return generated_code
 
+def updateOTPCode(username):
+    code = users.find({
+            "username": username
+        })[0]["OTP"]
+
+    encrypted_email = users.find({
+                "username": username
+            })[0]["email_encrypted"]
+
+    stored_key = users.find({
+                "username": username
+            })[0]["u_key"]
+
+    f = Fernet(stored_key)
+    # Decrypt the email.
+    decrypted_email = f.decrypt(encrypted_email)
+    # Decode the bytes back into a string.
+    decrypted_email = decrypted_email.decode()
+
+    generated_code = randint(10000, 99999)
+    
+    users.update({"OTP" : code}, {"$set" : {"OTP": generated_code}})
+
+    return generated_code, decrypted_email
+
 
 # def GetCodeFromDb(email):
 #     code = users.find({
@@ -189,6 +214,12 @@ def TokenExist(username):
 
     return existing_token
 
+
+def getOTP(username):
+    old_otp = users.find({
+        "username": username
+    })[0]["OTP"]
+    return old_otp
 
 def generate_key_for_credentials(username):
     key = Fernet.generate_key()
@@ -248,8 +279,6 @@ def decode_email(username):
         return decrypted_email
     return False
     
-#     print(decrpted_email)
-
 
 class Register(Resource):
     def post(self):
@@ -301,6 +330,8 @@ class Register(Resource):
 
             u_key, encrypted_email, encrypted_number, encrypted_age, encrypted_gender = encode_credentials(username, email, contact, age, gender)
 
+            generated_OTP_code = randint(10000, 99999)
+
             # utc_timestamp = datetime.datetime.utcnow()
 
             # users.create_index("date", expireAfterSeconds=20)
@@ -317,10 +348,11 @@ class Register(Resource):
                 # "date": utc_timestamp,
                 "u_key" : u_key,
                 "verification_code": 0,
-                "OTP" : 0
+                "OTP" : generated_OTP_code
             })
             retJson = {
                 "Token": token.decode('UTF-8'),
+                "OTP" : generated_OTP_code,
                 "status" : 200
             }
 
@@ -339,6 +371,7 @@ class Login(Resource):
         username = postedData["username"]
         # email = postedData["email"]
         password = postedData["password"]
+        otp = postedData["otp"]
         
         if username and password:
             correct_pw = verifyPw(username, password)
@@ -351,8 +384,21 @@ class Login(Resource):
                 return jsonify(retJson)
             
             Oldtoken = TokenExist(username)
-            if not Oldtoken:
+            registeredOtp = getOTP(username)
+            if registeredOtp != otp or otp == "":
+                code, email = updateOTPCode(username)
+                msg = Message('Covid Tracker: {}'.format(code), sender = 'furqan4545@yandex.ru', recipients = [email])
+                msg.body = "Here is your verification code: {}".format(code)
+                mail.send(msg)
 
+                retJson = {
+                    "status" : 200,
+                    "msg" : "Old OTP code didn't match, here is the new one.",
+                    "otpCode" : code
+                }
+                return jsonify(retJson)
+
+            if not Oldtoken:
                 new_token = jwt.encode({"user" : username, "exp": datetime.datetime.utcnow() + datetime.timedelta(days=365)}, app.config["SECRET_KEY"])
                 users.update({"username" : username}, {"$set" : {"Token": new_token}})
                 retJson = {
@@ -564,6 +610,7 @@ class WriteMongoFile(Resource):
         # # json_export = cursor.to_json()
         if mongo_docs.count() == 0:
             return
+
         with open('furqan.csv', 'w') as outfile:   
             fields = ['_id', "username",
                 "password",
@@ -579,10 +626,27 @@ class WriteMongoFile(Resource):
             write = csv.DictWriter(outfile, fieldnames=fields)
             write.writeheader()
             for i in range(len(cursor)):
+                f = Fernet(cursor[i]["u_key"])
+                encrypted_email = cursor[i]["email_encrypted"]
+                # Decrypt the message.
+                decrypted_email = f.decrypt(encrypted_email)
+                # Decode the bytes back into a string.
+                decrypted_email = decrypted_email.decode()
+                decrypted_cn = cursor[i]["contact_num"]
+                decrypted_cn = f.decrypt(decrypted_cn)
+                decrypted_cn = decrypted_cn.decode()
+                decrypted_age = cursor[i]["age"]
+                decrypted_age = f.decrypt(decrypted_age)
+                decrypted_age = decrypted_age.decode()
+                decrypted_gender = cursor[i]["gender"]
+                decrypted_gender = f.decrypt(decrypted_gender)
+                decrypted_gender = decrypted_gender.decode()
+                
+                
                 write.writerow({
                     "username": cursor[i]["username"], "password" : cursor[i]["password"].decode("utf-8"),
-                    "contact_num" : cursor[i]["contact_num"].decode("utf-8"), "email_encrypted" : cursor[i]["email_encrypted"].decode("utf-8"),
-                    "age" : cursor[i]["age"].decode("utf-8"), "gender" : cursor[i]["gender"].decode("utf-8")
+                    "contact_num" : decrypted_cn, "email_encrypted" : decrypted_email,
+                    "age" : decrypted_age, "gender" : decrypted_gender
                     })
             
         file_path = os.getcwd()+"/furqan.csv"
