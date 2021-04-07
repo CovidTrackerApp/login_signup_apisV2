@@ -62,6 +62,11 @@ https://levelup.gitconnected.com/coding-aes128-bit-encryption-in-python-in-less-
 
 if you wanna store something locally in docker container you better use this approach in compose file
 
+type this cmd first on cmd line 
+sudo docker volume create data
+sudo docker volume create --name=data_volume
+
+then edit docker-compose file
 
 services: 
   web:

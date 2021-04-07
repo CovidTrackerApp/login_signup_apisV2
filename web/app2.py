@@ -387,6 +387,7 @@ class Login(Resource):
             registeredOtp = getOTP(username)
             if registeredOtp != otp or otp == "":
                 code, email = updateOTPCode(username)
+                otp = code
                 msg = Message('Covid Tracker: {}'.format(code), sender = 'furqan4545@yandex.ru', recipients = [email])
                 msg.body = "Here is your verification code: {}".format(code)
                 mail.send(msg)
@@ -414,8 +415,8 @@ class Login(Resource):
             # users.update({"Token" : code}, {"$set" : {"Token": generated_code}})
 
             retJson = {
-                # "Token" : token.decode('UTF-8'),
-                "Token" : Oldtoken.decode('UTF-8'),
+                "Token" : Oldtoken.decode('UTF-8'),  # isky neechy vali line me code daalna hai edit kr k. 
+                "otpCode": otp,
                 "status" : 200
             }
 
