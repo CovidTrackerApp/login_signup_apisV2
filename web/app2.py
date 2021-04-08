@@ -221,6 +221,15 @@ def getOTP(username):
     })[0]["OTP"]
     return old_otp
 
+def verifyOtp(username, otpCode):
+    stored_otp = users.find({
+                    "username": username
+                })[0]["OTP"]
+    if stored_otp != otpCode:
+        return False
+    else:
+        return True
+
 def generate_key_for_credentials(username):
     key = Fernet.generate_key()
     c_path = os.getcwd()+ "/credential_keys"
@@ -427,6 +436,44 @@ class Login(Resource):
             "status" : 401
         }
         return jsonify(retJson)
+
+class VerifyOTP(Resource):
+    def post(self):
+        postedData = request.get_json()
+
+        username = postedData["username"]
+        otp = postedData["otp"]
+
+        if username and otp:
+            if not UserExist(username):
+                retJson = {
+                    "status" : 302,
+                    "msg" : "Username doesn't exists"
+                }
+                return jsonify(retJson)
+
+            correct_otp = verifyOtp(username, otp)
+
+            if not correct_otp:
+                retJson = {
+                    "status" : 301,
+                    "msg" : "Invalid OTP"
+                    }
+                return jsonify(retJson)
+            
+            retJson = {
+                    "status" : 200,
+                    "otp" : otp
+                    }
+            return jsonify(retJson)
+
+        retJson = {
+            "status" : 302,
+            "msg" : "No OTP specified"
+            }
+        return jsonify(retJson)
+
+        
 
 class ForgetPass(Resource):
     def post(self):
@@ -664,6 +711,7 @@ def protected():
 
 api.add_resource(Register, '/register')
 api.add_resource(Login, '/login')
+api.add_resource(VerifyOTP, '/verifyotp')
 api.add_resource(SendVerificationCode, '/sendcode')
 api.add_resource(ForgetPass, '/resetpass')
 api.add_resource(WriteCsvFile, '/writecsv')
