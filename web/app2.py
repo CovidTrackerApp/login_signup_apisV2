@@ -343,6 +343,11 @@ class Register(Resource):
 
             # utc_timestamp = datetime.datetime.utcnow()
 
+            # send email of OTP
+            msg = Message('Covid Tracker: {}'.format(generated_OTP_code), sender = 'furqan4545@yandex.ru', recipients = [email])
+            msg.body = "Here is your verification code: {}".format(generated_OTP_code)
+            mail.send(msg)
+
             # users.create_index("date", expireAfterSeconds=20)
             users.insert({
                 "username": username,
@@ -626,7 +631,7 @@ def upload_file():
 	if file and allowed_file(file.filename):
 		filename = secure_filename(file.filename)
 		file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-		resp = jsonify({'message' : 'File successfully uploaded'})
+		resp = jsonify({'message' : 'File ssuccessfully uploaded'})
 		resp.status_code = 201
 		return resp
 	else:
