@@ -35,6 +35,10 @@ app.config['MAIL_USE_SSL'] = True
 UPLOAD_FOLDER = '/usr/src/app/uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+UPLOAD_FOLDER_2 = '/usr/src/app/BTuploads'
+app.config['UPLOAD_FOLDER_2'] = UPLOAD_FOLDER_2
+
+
 client = MongoClient("mongodb://db:27017")
 mail = Mail(app)
 # client = MongoClient('localhost', 27017)
@@ -153,6 +157,17 @@ def updateVerificationCode(username):
 
     return generated_code
 
+def updateVerificationCodeViaEmail(hemail):
+    code = users.find({
+            "email_hashed": hemail
+        })[0]["verification_code"]
+
+    generated_code = randint(10000, 99999)
+    
+    users.update({"verification_code" : code}, {"$set" : {"verification_code": generated_code}})
+
+    return generated_code
+
 def updateOTPCode(username):
     code = users.find({
             "username": username
@@ -245,12 +260,13 @@ def generate_key_for_credentials(username):
 
 
 # create a msg to encode
-def encode_credentials(username, email, contact_num, age, gender):
+def encode_credentials(username, email, name, contact_num, age, gender):
     # Instantiate the object with your key.
     # (Refer to Encoding types above).
     key = generate_key_for_credentials(username)
     # username = username.encode()
     email = email.encode()
+    name = name.encode()
     contact_num = contact_num.encode()
     age = age.encode()
     gender = gender.encode()
@@ -258,13 +274,14 @@ def encode_credentials(username, email, contact_num, age, gender):
     # Pass your bytes type message into encrypt.
     # encrypted_username = f.encrypt(username)
     encrypted_email = f.encrypt(email)
+    encrypted_name = f.encrypt(name)
     encrypted_number = f.encrypt(contact_num)
     encrypted_age = f.encrypt(age)
     encrypted_gender = f.encrypt(gender)
     
     print(encrypted_number)
     # return encrypted_username, encrypted_email, encrypted_number, encrypted_age, encrypted_gender
-    return key, encrypted_email, encrypted_number, encrypted_age, encrypted_gender
+    return key, encrypted_email, encrypted_name, encrypted_number, encrypted_age, encrypted_gender
 
 def decode_email(username):
     c_path = os.getcwd()+ "/credential_keys"
@@ -287,7 +304,28 @@ def decode_email(username):
         #     return 
         return decrypted_email
     return False
+
+def decrypt_email(h_email):
+    key = users.find({
+        "email_hashed": h_email
+    })[0]["u_key"]
+
+    encrypted_email = users.find({
+        "email_hashed": h_email
+    })[0]["email_encrypted"]
+
+    f = Fernet(key)
+    # Decrypt the message.
+    decrypted_email = f.decrypt(encrypted_email)
+    # Decode the bytes back into a string.
+    decrypted_email = decrypted_email.decode()
     
+    return decrypted_email
+
+
+    
+# full name daalna hai. 
+# isky baad hme upload csv krni hai for bt and sensors data. 
 
 class Register(Resource):
     def post(self):
@@ -295,6 +333,7 @@ class Register(Resource):
 
         username = postedData["username"]
         password = postedData["password"]
+        FName = postedData["fname"]
         contact = postedData["contact_num"]
         email = postedData["email"]
         age = postedData["age"]
@@ -337,7 +376,7 @@ class Register(Resource):
             token = jwt.encode({"user" : username, "exp": datetime.datetime.utcnow() + datetime.timedelta(days=365)}, app.config["SECRET_KEY"])
             # token = jwt.encode({"user" : username, "exp": datetime.datetime.utcnow() + datetime.timedelta(seconds=10)}, app.config["SECRET_KEY"])
 
-            u_key, encrypted_email, encrypted_number, encrypted_age, encrypted_gender = encode_credentials(username, email, contact, age, gender)
+            u_key, encrypted_email, encrypted_name, encrypted_number, encrypted_age, encrypted_gender = encode_credentials(username, FName, email, contact, age, gender)
 
             generated_OTP_code = randint(10000, 99999)
 
@@ -352,6 +391,7 @@ class Register(Resource):
             users.insert({
                 "username": username,
                 "password": hashed_pw,
+                "fname" : encrypted_name,
                 "contact_num": encrypted_number,
                 "contact_hashed" : contact_hashed,
                 "email_hashed": email_hashed,
@@ -478,8 +518,6 @@ class VerifyOTP(Resource):
             }
         return jsonify(retJson)
 
-        
-
 class ForgetPass(Resource):
     def post(self):
         postedData = request.get_json()
@@ -524,25 +562,30 @@ class ForgetPass(Resource):
             
         return retJson
 
+# we have to take just email from user. Not username. 
 
 class SendVerificationCode(Resource):
     def post(self):
         postedData = request.get_json()
-        username = postedData["username"]
+        # username = postedData["username"]
         email = postedData["email"]
-
-        email = email.lower()
         
-        if email and username:
+        email = email.lower()
+        email_enc = email.encode("utf-8")
+        
+        if email:
+           
+            email_hashed = hashlib.sha224(email_enc).hexdigest()
             
-            if not UserExist(username):
+            if not EmailExist(email_hashed):
                 retJson = {
-                    "status" : 301,
-                    "msg" : "No such Username exists"
-                }
+                        "status" : 302,
+                        "msg" : "No such email is in records"
+                    }
                 return jsonify(retJson)
 
-            decoded_email = decode_email(username)
+            decoded_email = decrypt_email(email_hashed)
+            # decoded_email = decode_email(username)
             # if not EmailExist(decoded_email, email):
             #     retJson = {
             #         "msg" : "No such registered email",
@@ -556,8 +599,8 @@ class SendVerificationCode(Resource):
                 }
                 return jsonify(retJson)
 
-            code = updateVerificationCode(username)
-            msg = Message('Covid Tracker: {}'.format(code), sender = 'furqan4545@yandex.ru', recipients = [email])
+            code = updateVerificationCodeViaEmail(email_hashed)
+            msg = Message('Covid Tracker: {}'.format(code), sender = 'furqan4545@yandex.ru', recipients = [decoded_email])
             msg.body = "Here is your verification code: {}".format(code)
             mail.send(msg)
 
@@ -631,13 +674,37 @@ def upload_file():
 	if file and allowed_file(file.filename):
 		filename = secure_filename(file.filename)
 		file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-		resp = jsonify({'message' : 'File ssuccessfully uploaded'})
+		resp = jsonify({'message' : 'File successfully uploaded'})
 		resp.status_code = 201
 		return resp
 	else:
 		resp = jsonify({'message' : 'Allowed file types are txt, pdf, csv, docx, xlsx'})
 		resp.status_code = 400
 		return resp
+
+@app.route('/bt-file-upload', methods=['POST'])
+def upload_BTfile():
+	# check if the post request has the file part
+	if 'file' not in request.files:
+		resp = jsonify({'message' : 'No file part in the request', 'file': request.files, "path": os.getcwd()})
+		resp.status_code = 400
+		return resp
+	file = request.files['file']
+	if file.filename == '':
+		resp = jsonify({'message' : 'No file selected for uploading'})
+		resp.status_code = 400
+		return resp
+	if file and allowed_file(file.filename):
+		filename = secure_filename(file.filename)
+		file.save(os.path.join(app.config['UPLOAD_FOLDER_2'], filename))
+		resp = jsonify({'message' : 'File successfully uploaded'})
+		resp.status_code = 201
+		return resp
+	else:
+		resp = jsonify({'message' : 'Allowed file types are txt, pdf, csv, docx, xlsx'})
+		resp.status_code = 400
+		return resp
+
 
 class DownloadSensorCSV(Resource):
     def post(self):
