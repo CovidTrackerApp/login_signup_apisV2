@@ -215,9 +215,12 @@ def GetCodeFromDb(username):
     
 #     users.update({"password" : password}, {"$set" : {"password": updated_password}})    
 
-def setNewPassword(username, updated_password):
+def setNewPassword(hemail, updated_password):
+    # password = users.find({
+    #         "username": username
+    #     })[0]["password"]
     password = users.find({
-            "username": username
+            "email_hashed": hemail
         })[0]["password"]
     
     users.update({"password" : password}, {"$set" : {"password": updated_password}})    
@@ -244,6 +247,12 @@ def verifyOtp(username, otpCode):
         return False
     else:
         return True
+
+def getEmailCode(hemail):
+    code = users.find({
+            "email_hashed": hemail
+        })[0]["verification_code"]
+    return code
 
 def generate_key_for_credentials(username):
     key = Fernet.generate_key()
@@ -506,10 +515,47 @@ class VerifyOTP(Resource):
                     }
                 return jsonify(retJson)
             
+            new_token = jwt.encode({"user" : username, "exp": datetime.datetime.utcnow() + datetime.timedelta(days=365)}, app.config["SECRET_KEY"])
             retJson = {
                     "status" : 200,
-                    "otp" : otp
+                    "otp" : otp,
+                    "token" : new_token
                     }
+            return jsonify(retJson)
+
+        retJson = {
+            "status" : 302,
+            "msg" : "No OTP specified"
+            }
+        return jsonify(retJson)
+
+class VerifyCodeViaEmail(Resource):
+    def post(self):
+        postedData = request.get_json()
+
+        email = postedData["email"]
+        code = postedData["code"]
+
+        email = email.lower()
+        email_enc = email.encode("utf-8")
+
+        if email and code:
+            email_hashed = hashlib.sha224(email_enc).hexdigest()
+            
+            obt_code = getEmailCode(email_hashed)
+
+            if obt_code != code:
+                retJson = {
+                    "msg": "The code didn't match!",
+                    "status" : 301
+                }
+                return jsonify(retJson)
+            
+            # new_token = jwt.encode({"user" : email, "exp": datetime.datetime.utcnow() + datetime.timedelta(days=365)}, app.config["SECRET_KEY"])
+            retJson = {
+                    "status" : 200,
+                    "msg" : "Code matched! Verification Done!"
+                }
             return jsonify(retJson)
 
         retJson = {
@@ -522,13 +568,16 @@ class ForgetPass(Resource):
     def post(self):
         postedData = request.get_json()
 
-        # email = postedData["email"]
-        username = postedData["username"]
+        #username = postedData["username"]
+        email = postedData["email"]
+        email = email.lower()
+        email_enc = email.encode("utf-8")
+
         new_password = postedData["newPassword"]
         confirm_password = postedData["confirmPassword"]
-        code = postedData["code"]
-
-        if username and new_password and confirm_password and code:
+        
+        # if username and new_password and confirm_password:
+        if email and new_password and confirm_password:
 
             if new_password != confirm_password:
                 retJson = {
@@ -537,17 +586,10 @@ class ForgetPass(Resource):
                 }
                 return jsonify(retJson)
 
-            db_code = GetCodeFromDb(username)
-
-            if db_code != code:
-                retJson = {
-                    "msg": "The code didn't match!",
-                    "status" : 302 
-                }
-                return jsonify(retJson)
-            
+            email_hashed = hashlib.sha224(email_enc).hexdigest()
             hashed_password = bcrypt.hashpw(new_password.encode('utf8'), bcrypt.gensalt())
-            setNewPassword(username, hashed_password)
+            # setNewPassword(username, hashed_password)
+            setNewPassword(email_hashed, hashed_password)
 
             retJson = {
                 "msg" : "Password updated successfully.",
@@ -789,6 +831,7 @@ api.add_resource(ForgetPass, '/resetpass')
 api.add_resource(WriteCsvFile, '/writecsv')
 api.add_resource(WriteMongoFile, '/writemongo')
 api.add_resource(DownloadSensorCSV, '/downloadsensor')
+api.add_resource(VerifyCodeViaEmail, '/verifycodeviaemail')
 
 
 if __name__ == "__main__":
