@@ -342,7 +342,7 @@ class Register(Resource):
 
         username = postedData["username"]
         password = postedData["password"]
-        FName = postedData["fname"]
+        fname = postedData["fname"]
         contact = postedData["contact_num"]
         email = postedData["email"]
         age = postedData["age"]
@@ -385,7 +385,7 @@ class Register(Resource):
             token = jwt.encode({"user" : username, "exp": datetime.datetime.utcnow() + datetime.timedelta(days=365)}, app.config["SECRET_KEY"])
             # token = jwt.encode({"user" : username, "exp": datetime.datetime.utcnow() + datetime.timedelta(seconds=10)}, app.config["SECRET_KEY"])
 
-            u_key, encrypted_email, encrypted_name, encrypted_number, encrypted_age, encrypted_gender = encode_credentials(username, FName, email, contact, age, gender)
+            u_key, encrypted_email, encrypted_name, encrypted_number, encrypted_age, encrypted_gender = encode_credentials(username, email, fname, contact, age, gender)
 
             generated_OTP_code = randint(10000, 99999)
 
