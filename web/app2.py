@@ -25,8 +25,8 @@ app.config["SECRET_KEY"] = "t+isi-sth(esec4_OPof"
 # mail thing here
 app.config['MAIL_SERVER']='smtp.yandex.com'
 app.config['MAIL_PORT'] = 465
-app.config['MAIL_USERNAME'] = ''
-app.config['MAIL_PASSWORD'] = ''
+app.config['MAIL_USERNAME'] = 'furqan4545@yandex.ru'
+app.config['MAIL_PASSWORD'] = 'Yandex12345'
 app.config['MAIL_USE_TLS'] = False
 app.config['MAIL_USE_SSL'] = True
 # mail end here
@@ -519,7 +519,7 @@ class VerifyOTP(Resource):
             retJson = {
                     "status" : 200,
                     "otp" : otp,
-                    "token" : new_token
+                    "token" : new_token.decode('UTF-8'),
                     }
             return jsonify(retJson)
 
