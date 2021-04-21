@@ -11,7 +11,12 @@ import hashlib
 from multiprocessing import Process
 import os
 import csv
-from werkzeug.utils import secure_filename
+from werkzeug.utils import escape, secure_filename
+
+from zipfile import ZipFile
+from os.path import basename
+
+import io
 
 from flask_mail import Mail, Message
 from pymongo import MongoClient
@@ -25,8 +30,8 @@ app.config["SECRET_KEY"] = "t+isi-sth(esec4_OPof"
 # mail thing here
 app.config['MAIL_SERVER']='smtp.yandex.com'
 app.config['MAIL_PORT'] = 465
-app.config['MAIL_USERNAME'] = 'furqan4545@yandex.ru'
-app.config['MAIL_PASSWORD'] = 'Yandex12345'
+app.config['MAIL_USERNAME'] = ''
+app.config['MAIL_PASSWORD'] = ''
 app.config['MAIL_USE_TLS'] = False
 app.config['MAIL_USE_SSL'] = True
 # mail end here
@@ -38,6 +43,8 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 UPLOAD_FOLDER_2 = '/usr/src/app/BTuploads'
 app.config['UPLOAD_FOLDER_2'] = UPLOAD_FOLDER_2
 
+FOLDER_3 = "/usr/src/app/zipfolder"
+app.config['UPLOAD_FOLDER_3'] = FOLDER_3
 
 client = MongoClient("mongodb://db:27017")
 mail = Mail(app)
@@ -660,32 +667,6 @@ class SendVerificationCode(Resource):
 
 class WriteCsvFile(Resource):
     def get(self):
-        # mongo_docs = users.find()
-        # cursor = list(mongo_docs)
-        # # json_export = cursor.to_json()
-        # if mongo_docs.count() == 0:
-        #     return
-        # with open('furqan.csv', 'w') as outfile:   
-        #     fields = ['_id', "username",
-        #         "password",
-        #         "contact_num",
-        #         "contact_hashed",
-        #         "email_hashed",
-        #         "email_encrypted",
-        #         "age",
-        #         "gender",
-        #         "Token",
-        #         "verification_code",
-        #         "OTP"]
-        #     write = csv.DictWriter(outfile, fieldnames=fields)
-        #     write.writeheader()
-        #     write.writerow({"username": cursor[0]["username"], "password" : cursor[0]["password"]})
-        
-        # retJson = {
-            
-        # }
-        # return jsonify(cursor[0]["username"])
-        # return jsonify()
         c_path = os.getcwd()+ "/credential_keys"
         with open(f'{c_path}/furqaan.key', 'rb') as my_private_key:
             key = my_private_key.read()
@@ -697,6 +678,14 @@ class WriteCsvFile(Resource):
         }
 
         return jsonify(retJson)
+
+
+def background_remove(path):
+    task = Process(target=rm(path))
+    task.start()
+
+def rm(path):
+    os.remove(path)
 
 def allowed_file(filename):
 	return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -723,6 +712,10 @@ def upload_file():
 		resp = jsonify({'message' : 'Allowed file types are txt, pdf, csv, docx, xlsx'})
 		resp.status_code = 400
 		return resp
+
+# Naming  convention for storing sensor file
+# username+today's date
+# for e.g. furqan4545_22-04-21
 
 @app.route('/bt-file-upload', methods=['POST'])
 def upload_BTfile():
@@ -758,12 +751,38 @@ class DownloadSensorCSV(Resource):
         return send_file(file_path, as_attachment=True)
 
 
-def background_remove(path):
-    task = Process(target=rm(path))
-    task.start()
+@app.route('/downloadsensorszip/<username>', methods=['GET'])
+def download_csv_zip(username):
+    
+    folder_path = os.getcwd()+"/uploads"
 
-def rm(path):
-    os.remove(path)
+    with ZipFile(f'{app.config["UPLOAD_FOLDER_3"]}/data.zip', 'w') as zipObj:
+        # Iterate over all the files in directory
+        for folderName, subfolders, filenames in os.walk(folder_path):
+            for filename in filenames:
+                if filename[:-13] == username:
+                    print(filename)
+                    print("Hello there is ")
+                    #create complete filepath of file in directory
+                    filePath = os.path.join(folderName, filename)
+                    # Add file to zip
+                    zipObj.write(filePath, basename(filePath))
+                else:
+                    return jsonify({"msg": "No such user files exist"})
+    file_path = app.config['UPLOAD_FOLDER_3']+"/data.zip"
+
+    ######
+    return_data = io.BytesIO()
+    with open(file_path, 'rb') as fo:
+        return_data.write(fo.read())
+        return_data.seek(0)   
+
+    background_remove(file_path)
+    #######
+
+    # return send_file(file_path, as_attachment=True)
+    return send_file(return_data, as_attachment=True, attachment_filename="data.zip")
+
 
 class WriteMongoFile(Resource):
     def get(self):
@@ -773,7 +792,7 @@ class WriteMongoFile(Resource):
         if mongo_docs.count() == 0:
             return
 
-        with open('furqan.csv', 'w') as outfile:   
+        with open('credentials_file.csv', 'w') as outfile:   
             fields = ['_id', "username",
                 "password",
                 "contact_num",
@@ -811,9 +830,9 @@ class WriteMongoFile(Resource):
                     "age" : decrypted_age, "gender" : decrypted_gender
                     })
             
-        file_path = os.getcwd()+"/furqan.csv"
+        file_path = os.getcwd()+"/credentials_file.csv"
         # return jsonify(cursor[0]["email_encrypted"].decode("utf-8"))
-        return send_file(file_path, as_attachment=True, attachment_filename="furqan.csv")
+        return send_file(file_path, as_attachment=True, attachment_filename="credentials_file.csv")
         
 
 

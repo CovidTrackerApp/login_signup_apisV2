@@ -15,6 +15,7 @@ services:
       - /usr/src/app/credential_keys
       - /usr/src/app/uploads
       - /usr/src/app/BTuploads
+      - /usr/src/app/zipfolder
 
   db:
     build: ./db
