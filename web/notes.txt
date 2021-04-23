@@ -31,7 +31,7 @@ sudo docker-compose down
 docker images
 docker container
 
-docker images ls
+docker image ls
 docker container ls
 
 docker container stop <container id>
@@ -94,5 +94,21 @@ https://docs.python.org/3.3/library/hashlib.html
 
 # for uploading files via url i.e. postman.
 https://roytuts.com/python-flask-rest-api-file-upload/
+
+
+
+sometimes docker container will stop responding even the server is runing and there is no error.
+In that case make sure that you check all the available images and container and delete all of them blc they fillup your server space very quickly and you don't have any further storage
+where you can store or run the docker image.
+sudo docker image ls 
+sudo docker image rm <image id>
+
+sudo docker container ls -a
+sudo docker container ls -aq
+sudo docker Container rm <container id>
+
+
+
+
 
 

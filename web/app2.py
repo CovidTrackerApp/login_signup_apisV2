@@ -444,6 +444,13 @@ class Login(Resource):
         otp = postedData["otp"]
         
         if username and password:
+            if not UserExist(username):
+                retJson = {
+                    "status" : 303,
+                    "msg" : "No such user exist"
+                }
+                return jsonify(retJson)
+
             correct_pw = verifyPw(username, password)
 
             if not correct_pw:
@@ -494,7 +501,7 @@ class Login(Resource):
 
         retJson = {
             "msg" : "Fields can not be empty. Login required!",
-            "status" : 401
+            "status" : 304
         }
         return jsonify(retJson)
 
@@ -605,7 +612,7 @@ class ForgetPass(Resource):
             return jsonify(retJson)
 
         retJson = {
-            "message" : "Please fill all the fields",
+            "msg" : "Please fill all the fields",
             "status" : 303
         }
             
@@ -694,22 +701,22 @@ def allowed_file(filename):
 def upload_file():
 	# check if the post request has the file part
 	if 'file' not in request.files:
-		resp = jsonify({'message' : 'No file part in the request', 'file': request.files, "path": os.getcwd()})
+		resp = jsonify({'msg' : 'No file part in the request', 'file': request.files, "path": os.getcwd()})
 		resp.status_code = 400
 		return resp
 	file = request.files['file']
 	if file.filename == '':
-		resp = jsonify({'message' : 'No file selected for uploading'})
+		resp = jsonify({'msg' : 'No file selected for uploading'})
 		resp.status_code = 400
 		return resp
 	if file and allowed_file(file.filename):
 		filename = secure_filename(file.filename)
 		file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-		resp = jsonify({'message' : 'File successfully uploaded'})
+		resp = jsonify({'msg' : 'File successfully uploaded'})
 		resp.status_code = 201
 		return resp
 	else:
-		resp = jsonify({'message' : 'Allowed file types are txt, pdf, csv, docx, xlsx'})
+		resp = jsonify({'msg' : 'Allowed file types are txt, pdf, csv, docx, xlsx'})
 		resp.status_code = 400
 		return resp
 
@@ -721,22 +728,22 @@ def upload_file():
 def upload_BTfile():
 	# check if the post request has the file part
 	if 'file' not in request.files:
-		resp = jsonify({'message' : 'No file part in the request', 'file': request.files, "path": os.getcwd()})
+		resp = jsonify({'msg' : 'No file part in the request', 'file': request.files, "path": os.getcwd()})
 		resp.status_code = 400
 		return resp
 	file = request.files['file']
 	if file.filename == '':
-		resp = jsonify({'message' : 'No file selected for uploading'})
+		resp = jsonify({'msg' : 'No file selected for uploading'})
 		resp.status_code = 400
 		return resp
 	if file and allowed_file(file.filename):
 		filename = secure_filename(file.filename)
 		file.save(os.path.join(app.config['UPLOAD_FOLDER_2'], filename))
-		resp = jsonify({'message' : 'File successfully uploaded'})
+		resp = jsonify({'msg' : 'File successfully uploaded'})
 		resp.status_code = 201
 		return resp
 	else:
-		resp = jsonify({'message' : 'Allowed file types are txt, pdf, csv, docx, xlsx'})
+		resp = jsonify({'msg' : 'Allowed file types are txt, pdf, csv, docx, xlsx'})
 		resp.status_code = 400
 		return resp
 
@@ -780,7 +787,6 @@ def download_csv_zip(username):
     background_remove(file_path)
     #######
 
-    # return send_file(file_path, as_attachment=True)
     return send_file(return_data, as_attachment=True, attachment_filename="data.zip")
 
 
