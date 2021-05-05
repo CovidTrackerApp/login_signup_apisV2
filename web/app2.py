@@ -30,8 +30,8 @@ app.config["SECRET_KEY"] = "t+isi-sth(esec4_OPof"
 # mail thing here
 app.config['MAIL_SERVER']='smtp.yandex.com'
 app.config['MAIL_PORT'] = 465
-app.config['MAIL_USERNAME'] = ''
-app.config['MAIL_PASSWORD'] = ''
+app.config['MAIL_USERNAME'] = 'furqan4545@yandex.ru'
+app.config['MAIL_PASSWORD'] = 'Yandex12345'
 app.config['MAIL_USE_TLS'] = False
 app.config['MAIL_USE_SSL'] = True
 # mail end here
@@ -45,6 +45,9 @@ app.config['UPLOAD_FOLDER_2'] = UPLOAD_FOLDER_2
 
 FOLDER_3 = "/usr/src/app/zipfolder"
 app.config['UPLOAD_FOLDER_3'] = FOLDER_3
+
+FOLDER_4 = "/usr/src/app/btzipfolder"
+app.config['UPLOAD_FOLDER_4'] = FOLDER_4
 
 client = MongoClient("mongodb://db:27017")
 mail = Mail(app)
@@ -77,7 +80,8 @@ def token_required(f):
     return decorated
 
 def UserExist(username):
-    if users.find({"username": username}).count() == 0:
+    # if users.find({"username": username}).count() == 0:
+    if users.count_documents({"username": username}) == 0:
         return False
     else: 
         return True
@@ -788,6 +792,36 @@ def download_csv_zip(username):
     #######
 
     return send_file(return_data, as_attachment=True, attachment_filename="data.zip")
+
+@app.route('/downloadbtzip/<username>', methods=['GET'])
+def download_bt_csv_zip(username):
+    
+    folder_path = os.getcwd()+"/BTuploads"
+
+    with ZipFile(f'{app.config["UPLOAD_FOLDER_4"]}/btdata.zip', 'w') as zipObj:
+        # Iterate over all the files in directory
+        for folderName, subfolders, filenames in os.walk(folder_path):
+            for filename in filenames:
+                if filename[:-13] == username:
+                    print("Hello there is file")
+                    #create complete filepath of file in directory
+                    filePath = os.path.join(folderName, filename)
+                    # Add file to zip
+                    zipObj.write(filePath, basename(filePath))
+                else:
+                    return jsonify({"msg": "No such user files exist"})
+    file_path = app.config['UPLOAD_FOLDER_4']+"/btdata.zip"
+
+    ######
+    return_data = io.BytesIO()
+    with open(file_path, 'rb') as fo:
+        return_data.write(fo.read())
+        return_data.seek(0)   
+
+    background_remove(file_path)
+    #######
+
+    return send_file(return_data, as_attachment=True, attachment_filename="btdata.zip")
 
 
 class WriteMongoFile(Resource):

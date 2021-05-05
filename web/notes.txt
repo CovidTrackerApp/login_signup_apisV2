@@ -109,6 +109,12 @@ sudo docker Container rm <container id>
 
 
 
+# For uninstalling mongodb use this command
+
+sudo apt-get purge mongodb-org*
+
+# for installing mongodb write this command
+sudo apt-get install mongodb
 
 
 

@@ -16,6 +16,7 @@ services:
       - /usr/src/app/uploads
       - /usr/src/app/BTuploads
       - /usr/src/app/zipfolder
+      - /usr/src/app/btzipfolder
 
   db:
     build: ./db
